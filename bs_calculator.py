@@ -72,7 +72,28 @@ def historical_vol(ticker: str, window: int = 30) -> float:
 
 def implied_vol(market_price: float, S: float, K: float, T: float, r: float,
                 option_type: str = 'call', tol: float = 1e-6, max_iter: int = 100):
-    raise NotImplementedError
+    """Newton-Raphson implied volatility solver. Returns float or np.nan if non-convergent."""
+    if market_price <= 0:
+        return np.nan
+
+    sigma = 0.3  # initial guess
+    try:
+        for _ in range(max_iter):
+            price = bs_price(S, K, T, r, sigma, option_type)
+            d1 = (np.log(S / K) + (r + sigma ** 2 / 2) * T) / (sigma * np.sqrt(T))
+            vega = S * norm.pdf(d1) * np.sqrt(T)
+            diff = price - market_price
+            if abs(diff) < tol:
+                return sigma
+            if vega < 1e-10:
+                return np.nan
+            sigma -= diff / vega
+            if sigma <= 0:
+                return np.nan
+    except (ValueError, ZeroDivisionError, FloatingPointError):
+        return np.nan
+
+    return np.nan
 
 
 def pricing_table(S: float, K_range: list, T: float, r: float, sigma: float) -> pd.DataFrame:

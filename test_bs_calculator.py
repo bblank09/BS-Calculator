@@ -153,3 +153,36 @@ class TestHistoricalVol:
         with patch('bs_calculator.yf.Ticker', return_value=mock_ticker) as mock_yf:
             historical_vol('AAPL', window=30)
         mock_yf.assert_called_once_with('AAPL')
+
+
+class TestImpliedVol:
+    def test_recovers_known_sigma(self):
+        S, K, T, r, true_sigma = 100, 100, 1.0, 0.05, 0.25
+        market_price = bs_price(S, K, T, r, true_sigma, 'call')
+        iv = implied_vol(market_price, S, K, T, r, 'call')
+        assert abs(iv - true_sigma) < 1e-5
+
+    def test_recovers_sigma_put(self):
+        S, K, T, r, true_sigma = 100, 105, 0.5, 0.05, 0.30
+        market_price = bs_price(S, K, T, r, true_sigma, 'put')
+        iv = implied_vol(market_price, S, K, T, r, 'put')
+        assert abs(iv - true_sigma) < 1e-5
+
+    def test_call_and_put_give_same_iv(self):
+        S, K, T, r, true_sigma = 100, 100, 1.0, 0.05, 0.2
+        call_price = bs_price(S, K, T, r, true_sigma, 'call')
+        put_price = bs_price(S, K, T, r, true_sigma, 'put')
+        iv_call = implied_vol(call_price, S, K, T, r, 'call')
+        iv_put = implied_vol(put_price, S, K, T, r, 'put')
+        assert abs(iv_call - iv_put) < 1e-4
+
+    def test_impossible_price_returns_nan(self):
+        S, K, T, r = 100, 100, 1.0, 0.05
+        result = implied_vol(-1.0, S, K, T, r, 'call')
+        assert result is None or (isinstance(result, float) and np.isnan(result))
+
+    def test_returns_float(self):
+        S, K, T, r, sigma = 100, 100, 1.0, 0.05, 0.2
+        price = bs_price(S, K, T, r, sigma, 'call')
+        iv = implied_vol(price, S, K, T, r, 'call')
+        assert isinstance(iv, float)
