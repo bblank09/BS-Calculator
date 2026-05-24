@@ -108,3 +108,48 @@ class TestBsGreeks:
     def test_theta_call_negative(self):
         g = bs_greeks(self.S, self.K, self.T, self.r, self.sigma)
         assert g['theta_call'] < 0
+
+
+class TestHistoricalVol:
+    def _make_mock_ticker(self, prices):
+        mock_ticker = MagicMock()
+        df = pd.DataFrame({'Close': prices},
+                          index=pd.date_range('2024-01-01', periods=len(prices), freq='B'))
+        mock_ticker.history.return_value = df
+        return mock_ticker
+
+    def test_returns_float(self):
+        prices = [100 * (1.001 ** i) for i in range(60)]
+        mock_ticker = self._make_mock_ticker(prices)
+        with patch('bs_calculator.yf.Ticker', return_value=mock_ticker):
+            vol = historical_vol('FAKE', window=30)
+        assert isinstance(vol, float)
+
+    def test_vol_positive(self):
+        import random
+        random.seed(42)
+        prices = [100 + random.gauss(0, 1) for _ in range(60)]
+        mock_ticker = self._make_mock_ticker(prices)
+        with patch('bs_calculator.yf.Ticker', return_value=mock_ticker):
+            vol = historical_vol('FAKE', window=30)
+        assert vol > 0
+
+    def test_vol_annualized_scale(self):
+        import random
+        random.seed(0)
+        price = 100.0
+        prices = [price]
+        for _ in range(59):
+            price *= (1 + random.gauss(0, 0.01))
+            prices.append(price)
+        mock_ticker = self._make_mock_ticker(prices)
+        with patch('bs_calculator.yf.Ticker', return_value=mock_ticker):
+            vol = historical_vol('FAKE', window=30)
+        assert 0.05 < vol < 1.0
+
+    def test_calls_yfinance_with_ticker(self):
+        prices = [100 + i * 0.1 for i in range(60)]
+        mock_ticker = self._make_mock_ticker(prices)
+        with patch('bs_calculator.yf.Ticker', return_value=mock_ticker) as mock_yf:
+            historical_vol('AAPL', window=30)
+        mock_yf.assert_called_once_with('AAPL')

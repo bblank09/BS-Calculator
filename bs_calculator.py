@@ -61,7 +61,13 @@ def bs_greeks(S: float, K: float, T: float, r: float, sigma: float) -> dict:
 
 
 def historical_vol(ticker: str, window: int = 30) -> float:
-    raise NotImplementedError
+    """Fetch price data via yfinance, compute annualized volatility."""
+    tk = yf.Ticker(ticker)
+    hist = tk.history(period='1y')
+    closes = hist['Close']
+    log_returns = np.log(closes / closes.shift(1)).dropna()
+    daily_vol = log_returns.rolling(window).std().dropna()
+    return float(daily_vol.iloc[-1] * np.sqrt(252))
 
 
 def implied_vol(market_price: float, S: float, K: float, T: float, r: float,
