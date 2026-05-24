@@ -62,3 +62,49 @@ class TestBsPrice:
         put = bs_price(S, K, T, r, sigma, 'put')
         parity = S - K * np.exp(-r * T)
         assert abs((call - put) - parity) < 1e-6
+
+
+class TestBsGreeks:
+    def setup_method(self):
+        self.S, self.K, self.T, self.r, self.sigma = 100, 100, 1.0, 0.05, 0.2
+
+    def test_returns_all_greeks(self):
+        g = bs_greeks(self.S, self.K, self.T, self.r, self.sigma)
+        for key in ['delta_call', 'delta_put', 'gamma', 'theta_call', 'vega']:
+            assert key in g
+
+    def test_delta_call_range(self):
+        g = bs_greeks(self.S, self.K, self.T, self.r, self.sigma)
+        assert 0 < g['delta_call'] < 1
+
+    def test_delta_put_range(self):
+        g = bs_greeks(self.S, self.K, self.T, self.r, self.sigma)
+        assert -1 < g['delta_put'] < 0
+
+    def test_delta_call_plus_put_equals_one(self):
+        g = bs_greeks(self.S, self.K, self.T, self.r, self.sigma)
+        assert abs(g['delta_call'] - g['delta_put'] - 1.0) < 1e-10
+
+    def test_gamma_positive(self):
+        g = bs_greeks(self.S, self.K, self.T, self.r, self.sigma)
+        assert g['gamma'] > 0
+
+    def test_vega_positive(self):
+        g = bs_greeks(self.S, self.K, self.T, self.r, self.sigma)
+        assert g['vega'] > 0
+
+    def test_atm_delta_call_near_half(self):
+        g = bs_greeks(100, 100, 1.0, 0.0, 0.2)
+        assert abs(g['delta_call'] - 0.5) < 0.1
+
+    def test_vega_numerical_check(self):
+        g = bs_greeks(self.S, self.K, self.T, self.r, self.sigma)
+        eps = 1e-4
+        price_up = bs_price(self.S, self.K, self.T, self.r, self.sigma + eps, 'call')
+        price_dn = bs_price(self.S, self.K, self.T, self.r, self.sigma - eps, 'call')
+        numerical_vega = (price_up - price_dn) / (2 * eps)
+        assert abs(g['vega'] - numerical_vega) < 0.01
+
+    def test_theta_call_negative(self):
+        g = bs_greeks(self.S, self.K, self.T, self.r, self.sigma)
+        assert g['theta_call'] < 0
