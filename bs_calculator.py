@@ -112,3 +112,57 @@ def pricing_table(S: float, K_range: list, T: float, r: float, sigma: float) -> 
             'Vega': round(g['vega'], 4),
         })
     return pd.DataFrame(rows)
+
+
+def main():
+    ticker = 'AAPL'
+    r = 0.05
+    T_days = 30
+    T = T_days / 365
+
+    tk = yf.Ticker(ticker)
+    hist = tk.history(period='5d')
+    S = float(hist['Close'].iloc[-1])
+    sigma = historical_vol(ticker, window=30)
+
+    print(f"\nUnderlying: {ticker} | S={S:.2f} | σ={sigma:.4f} | r={r} | T={T_days} days")
+
+    atm = round(S / 5) * 5
+    strikes = sorted(set([atm - 10, atm - 5, atm, atm + 5, atm + 10]))
+
+    df = pricing_table(S, strikes, T, r, sigma)
+    print()
+    print(tabulate(df.values, headers=list(df.columns), tablefmt='simple', floatfmt='.4f'))
+
+    try:
+        expirations = tk.options
+        if expirations:
+            exp = expirations[0]
+            chain = tk.option_chain(exp)
+            calls_market = chain.calls[['strike', 'lastPrice']].copy()
+            calls_market.columns = ['Strike', 'Market Price']
+
+            print(f"\n--- Market vs BS Comparison (calls, expiry {exp}) ---")
+            rows = []
+            for _, row in calls_market.iterrows():
+                K = row['Strike']
+                if abs(K - S) / S > 0.10:
+                    continue
+                mkt = row['Market Price']
+                bs_val = bs_price(S, K, T, r, sigma, 'call')
+                iv = implied_vol(mkt, S, K, T, r, 'call')
+                rows.append({
+                    'Strike': K,
+                    'Market': round(mkt, 2),
+                    'BS Price': round(bs_val, 2),
+                    'Diff': round(bs_val - mkt, 2),
+                    'Impl Vol': f"{iv:.4f}" if iv and not np.isnan(iv) else 'N/A',
+                })
+            if rows:
+                print(tabulate(rows, headers='keys', tablefmt='simple'))
+    except Exception as e:
+        print(f"(Could not fetch option chain: {e})")
+
+
+if __name__ == '__main__':
+    main()
