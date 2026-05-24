@@ -97,4 +97,18 @@ def implied_vol(market_price: float, S: float, K: float, T: float, r: float,
 
 
 def pricing_table(S: float, K_range: list, T: float, r: float, sigma: float) -> pd.DataFrame:
-    raise NotImplementedError
+    """Generate pricing table: Strike | Call BS | Put BS | Delta(C) | Gamma | Vega"""
+    rows = []
+    for K in K_range:
+        call = bs_price(S, K, T, r, sigma, 'call')
+        put = bs_price(S, K, T, r, sigma, 'put')
+        g = bs_greeks(S, K, T, r, sigma)
+        rows.append({
+            'Strike': K,
+            'Call Price': round(call, 4),
+            'Put Price': round(put, 4),
+            'Delta(C)': round(g['delta_call'], 4),
+            'Gamma': round(g['gamma'], 4),
+            'Vega': round(g['vega'], 4),
+        })
+    return pd.DataFrame(rows)

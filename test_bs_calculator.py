@@ -186,3 +186,47 @@ class TestImpliedVol:
         price = bs_price(S, K, T, r, sigma, 'call')
         iv = implied_vol(price, S, K, T, r, 'call')
         assert isinstance(iv, float)
+
+
+class TestPricingTable:
+    def setup_method(self):
+        self.S = 190.0
+        self.K_range = [180, 185, 190, 195, 200]
+        self.T = 30 / 365
+        self.r = 0.05
+        self.sigma = 0.28
+
+    def test_returns_dataframe(self):
+        df = pricing_table(self.S, self.K_range, self.T, self.r, self.sigma)
+        assert isinstance(df, pd.DataFrame)
+
+    def test_correct_columns(self):
+        df = pricing_table(self.S, self.K_range, self.T, self.r, self.sigma)
+        for col in ['Strike', 'Call Price', 'Put Price', 'Delta(C)', 'Gamma', 'Vega']:
+            assert col in df.columns
+
+    def test_correct_row_count(self):
+        df = pricing_table(self.S, self.K_range, self.T, self.r, self.sigma)
+        assert len(df) == len(self.K_range)
+
+    def test_strike_column_values(self):
+        df = pricing_table(self.S, self.K_range, self.T, self.r, self.sigma)
+        assert list(df['Strike']) == self.K_range
+
+    def test_call_prices_decrease_with_strike(self):
+        df = pricing_table(self.S, self.K_range, self.T, self.r, self.sigma)
+        calls = list(df['Call Price'])
+        assert all(calls[i] > calls[i+1] for i in range(len(calls)-1))
+
+    def test_put_prices_increase_with_strike(self):
+        df = pricing_table(self.S, self.K_range, self.T, self.r, self.sigma)
+        puts = list(df['Put Price'])
+        assert all(puts[i] < puts[i+1] for i in range(len(puts)-1))
+
+    def test_delta_call_between_zero_and_one(self):
+        df = pricing_table(self.S, self.K_range, self.T, self.r, self.sigma)
+        assert all(0 < d < 1 for d in df['Delta(C)'])
+
+    def test_gamma_positive(self):
+        df = pricing_table(self.S, self.K_range, self.T, self.r, self.sigma)
+        assert all(g > 0 for g in df['Gamma'])
